@@ -583,7 +583,24 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                   />
                 </div>
 
-                {/* Sound Volume */}
+                {/* Field of View (FOV) */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-zinc-300">Field of View (FOV):</span>
+                    <span className="text-emerald-400 font-bold">{settings.fov || 75}°</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="60"
+                    max="100"
+                    step="1"
+                    value={settings.fov || 75}
+                    onChange={(e) => onUpdateSettings({ fov: parseInt(e.target.value, 10) })}
+                    className="w-full accent-emerald-500 cursor-pointer"
+                  />
+                </div>
+
+                {/* Master Sound Volume */}
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs">
                     <span className="text-zinc-300">Master Sound Volume:</span>
@@ -595,7 +612,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                     max="1"
                     step="0.05"
                     value={settings.soundVolume}
-                    onChange={(e) => onUpdateSettings({ soundVolume: parseFloat(e.target.value) })}
+                    onChange={(e) => onUpdateSettings({ soundVolume: parseFloat(e.target.value), masterVolume: parseFloat(e.target.value) })}
                     className="w-full accent-emerald-500 cursor-pointer"
                   />
                 </div>

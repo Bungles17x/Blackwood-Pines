@@ -395,6 +395,9 @@ export class HorrorEngine {
   public onNoteOpen?: (note: LoreNote) => void;
   public onCctvOpen?: () => void;
   public onMapOpen?: () => void;
+  public onOpenObjectives?: () => void;
+  public onPauseGame?: () => void;
+  public onInputModeChange?: (mode: 'keyboard' | 'gamepad' | 'touch') => void;
   public onGameOver?: () => void;
   public onVictory?: () => void;
   public onBannerMessage?: (message: string | null) => void;
@@ -411,13 +414,23 @@ export class HorrorEngine {
   private clock = new THREE.Clock();
   public currentChapterId = 1;
   public timeSurvivedSeconds = 0;
+  private isGamepadActive = false;
+  private prevGamepadButtons = new Map<number, boolean>();
   public settings: GameSettings = {
     mouseSensitivity: 1.0,
     soundVolume: 0.8,
     ambientVolume: 0.7,
+    sfxVolume: 0.8,
+    masterVolume: 0.8,
     difficulty: 'normal',
     headBobbing: true,
     filmGrain: true,
+    fov: 75,
+    graphicsQuality: 'high',
+    chromaticAberration: true,
+    vignette: true,
+    weatherEffects: true,
+    controllerVibration: true,
   };
 
   public setModalOpen(isOpen: boolean) {
@@ -3317,6 +3330,155 @@ export class HorrorEngine {
     }
   }
 
+  private pollGamepad(delta: number): { forward: number; strafe: number } {
+    if (typeof navigator === 'undefined' || !navigator.getGamepads || this.isModalOpen || !this.isRunning || this.isDying) {
+      return { forward: 0, strafe: 0 };
+    }
+
+    const gamepads = navigator.getGamepads();
+    let gp: Gamepad | null = null;
+    for (let i = 0; i < gamepads.length; i++) {
+      if (gamepads[i] && gamepads[i]!.connected) {
+        gp = gamepads[i];
+        break;
+      }
+    }
+
+    if (!gp) {
+      if (this.isGamepadActive) {
+        this.isGamepadActive = false;
+        this.onInputModeChange?.('keyboard');
+      }
+      return { forward: 0, strafe: 0 };
+    }
+
+    if (!this.isGamepadActive) {
+      this.isGamepadActive = true;
+      this.onInputModeChange?.('gamepad');
+    }
+
+    // Deadzone helper
+    const applyDeadzone = (v: number, thresh = 0.16) => {
+      if (Math.abs(v) < thresh) return 0;
+      return (v - Math.sign(v) * thresh) / (1 - thresh);
+    };
+
+    // Left stick: Movement (axes 0, 1)
+    const stickX = applyDeadzone(gp.axes[0] || 0);
+    const stickY = applyDeadzone(gp.axes[1] || 0);
+
+    // Right stick: Look (axes 2, 3)
+    const lookX = applyDeadzone(gp.axes[2] || 0);
+    const lookY = applyDeadzone(gp.axes[3] || 0);
+
+    if (Math.abs(lookX) > 0.001 || Math.abs(lookY) > 0.001) {
+      const sens = 2.4 * (this.settings.mouseSensitivity || 1.0) * delta;
+      this.yaw -= lookX * sens;
+      this.pitch -= lookY * sens;
+      this.pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, this.pitch));
+    }
+
+    // Buttons
+    const isPressed = (idx: number) => Boolean(gp && gp.buttons[idx] && gp.buttons[idx].pressed);
+    const wasJustPressed = (idx: number) => {
+      const cur = isPressed(idx);
+      const prev = Boolean(this.prevGamepadButtons.get(idx));
+      return cur && !prev;
+    };
+
+    // Button 0: A / Cross -> Interact / Exit Locker
+    if (wasJustPressed(0)) {
+      if (this.isPlayerHiding) this.exitLocker();
+      else if (this.activePrompt) this.interact();
+    }
+
+    // Button 1: B / Circle -> Crouch
+    if (wasJustPressed(1)) {
+      this.toggleCrouch();
+    }
+
+    // Button 2: X / Square -> Reload Battery / Tap Flashlight
+    if (wasJustPressed(2)) {
+      if (this.flashlightState.enabled && (this.flashlightState.isFlickering || this.flashlightState.battery < 25)) {
+        this.tapFlashlight();
+      } else {
+        this.useBattery();
+      }
+    }
+
+    // Button 3: Y / Triangle -> Toggle Flashlight
+    if (wasJustPressed(3)) {
+      this.toggleFlashlight();
+    }
+
+    // Button 4: LB -> Throw bottle
+    if (wasJustPressed(4)) {
+      this.throwBottle();
+    }
+
+    // Button 5: RB -> Flare
+    if (wasJustPressed(5)) {
+      this.useFlare();
+    }
+
+    // Button 6: LT (trigger > 0.3) -> Hold breath
+    const ltValue = gp.buttons[6] ? (typeof gp.buttons[6] === 'object' ? gp.buttons[6].value : Number(gp.buttons[6])) : 0;
+    if (ltValue > 0.3) {
+      this.setHoldingBreath(true);
+    } else if (this.isHoldingBreath && !this.heldKeys.has('AltLeft') && !this.heldKeys.has('KeyH')) {
+      this.setHoldingBreath(false);
+    }
+
+    // Button 7: RT (trigger > 0.3) -> Sprint
+    const rtValue = gp.buttons[7] ? (typeof gp.buttons[7] === 'object' ? gp.buttons[7].value : Number(gp.buttons[7])) : 0;
+    const isRTSprinting = rtValue > 0.3;
+    if (isRTSprinting && !this.isSprinting) {
+      this.setSprinting(true);
+    } else if (!isRTSprinting && this.isSprinting && !this.heldKeys.has('ShiftLeft') && !this.heldKeys.has('ShiftRight')) {
+      this.setSprinting(false);
+    }
+
+    // Button 8 / 12: Select / D-Pad Up -> Open Map
+    if (wasJustPressed(8) || wasJustPressed(12)) {
+      this.openMap();
+    }
+
+    // Button 9: Start / Options -> Pause
+    if (wasJustPressed(9)) {
+      this.onPauseGame?.();
+    }
+
+    // Button 13: D-Pad Down -> Open Objectives
+    if (wasJustPressed(13)) {
+      this.onOpenObjectives?.();
+    }
+
+    // Button 14/15: D-Pad Left/Right -> Lean
+    if (isPressed(14)) {
+      this.activeLean = 'left';
+      this.onLeanChange?.('left');
+    } else if (isPressed(15)) {
+      this.activeLean = 'right';
+      this.onLeanChange?.('right');
+    } else if (this.activeLean && !this.heldKeys.has('KeyQ') && !this.heldKeys.has('KeyE')) {
+      this.activeLean = null;
+      this.onLeanChange?.(null);
+    }
+
+    // Button 10: Left Stick Click -> Jump
+    if (wasJustPressed(10)) {
+      if (this.isPlayerHiding) this.exitLocker();
+      this.jump();
+    }
+
+    // Update button history
+    for (let i = 0; i < gp.buttons.length; i++) {
+      this.prevGamepadButtons.set(i, Boolean(gp.buttons[i] && gp.buttons[i].pressed));
+    }
+
+    return { forward: -stickY, strafe: stickX };
+  }
+
   private loop = () => {
     if (!this.isRunning) return;
     this.animFrameId = requestAnimationFrame(this.loop);
@@ -3445,6 +3607,8 @@ export class HorrorEngine {
     const forward = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)).normalize();
     const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw)).normalize();
 
+    const gpMove = this.pollGamepad(delta);
+
     const wishDir = new THREE.Vector3();
     if (!this.isPlayerHiding) {
       if (this.moveForward) wishDir.add(forward);
@@ -3456,6 +3620,12 @@ export class HorrorEngine {
       }
       if (Math.abs(this.virtualStickX) > 0.01) {
         wishDir.addScaledVector(right, this.virtualStickX);
+      }
+      if (Math.abs(gpMove.forward) > 0.01) {
+        wishDir.addScaledVector(forward, gpMove.forward);
+      }
+      if (Math.abs(gpMove.strafe) > 0.01) {
+        wishDir.addScaledVector(right, gpMove.strafe);
       }
     }
 
@@ -3583,7 +3753,8 @@ export class HorrorEngine {
     const bobRollZ = isMoving && this.settings.headBobbing ? Math.cos(this.headBobTimer * 0.5) * bobAmount * 0.28 : 0;
     const breathingSway = this.isHoldingBreath ? 0 : Math.sin(this.clock.getElapsedTime() * 1.8) * 0.006;
     this.camera.position.y = this.playerPosition.y + bobOffsetY + breathingSway;
-    const targetFov = this.isSprinting ? 77 : this.isCrouching ? 68 : 72;
+    const baseFov = this.settings.fov || 75;
+    const targetFov = baseFov + (this.isSprinting ? 6 : this.isCrouching ? -4 : 0);
     this.camera.fov = THREE.MathUtils.damp(this.camera.fov, targetFov, 7, delta);
     this.camera.updateProjectionMatrix();
 
@@ -4392,17 +4563,6 @@ export class HorrorEngine {
       }
     }
     return false;
-  }
-
-  // Mobile / Onscreen Virtual Joystick support
-  public setVirtualMovement(forward: boolean, backward: boolean, left: boolean, right: boolean) {
-    if (this.isPlayerHiding) {
-      this.exitLocker();
-    }
-    this.moveForward = forward;
-    this.moveBackward = backward;
-    this.moveLeft = left;
-    this.moveRight = right;
   }
 
   public resetGame(chapterId: number = 1) {

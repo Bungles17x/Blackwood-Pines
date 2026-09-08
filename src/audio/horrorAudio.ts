@@ -71,6 +71,38 @@ class HorrorAudioEngine {
     }
   }
 
+  public setSFXVolume(vol: number) {
+    const sfxVol = Math.max(0, Math.min(1, vol));
+    if (this.sfxGain && this.ctx) {
+      this.sfxGain.gain.setTargetAtTime(sfxVol * 0.85, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  public setAmbientVolume(vol: number) {
+    const ambVol = Math.max(0, Math.min(1, vol));
+    if (this.ambientGain && this.ctx) {
+      this.ambientGain.gain.setTargetAtTime(ambVol * 0.2, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  public triggerGamepadRumble(intensity: number = 0.5, durationMs: number = 200) {
+    try {
+      const gamepads = typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
+      for (const gp of gamepads) {
+        if (!gp) continue;
+        const actuator = (gp as any).vibrationActuator;
+        if (actuator && typeof actuator.playEffect === 'function') {
+          actuator.playEffect('dual-rumble', {
+            startDelay: 0,
+            duration: durationMs,
+            weakMagnitude: Math.min(1, intensity * 0.7),
+            strongMagnitude: Math.min(1, intensity),
+          }).catch(() => {});
+        }
+      }
+    } catch {}
+  }
+
   public toggleMute() {
     this.isMuted = !this.isMuted;
     if (this.masterGain && this.ctx) {

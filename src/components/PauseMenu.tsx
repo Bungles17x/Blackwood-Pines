@@ -198,7 +198,7 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
             <span>FIELD CALIBRATION</span>
           </div>
 
-          {/* Mouse Sensitivity */}
+          {/* Look Sensitivity */}
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-zinc-400">
               <span>LOOK SENSITIVITY</span>
@@ -215,10 +215,27 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
             />
           </div>
 
-          {/* Master Volume */}
+          {/* Field of View (FOV) */}
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-zinc-400">
-              <span>AUDIO VOLUME</span>
+              <span>FIELD OF VIEW (FOV)</span>
+              <span className="text-emerald-400 font-bold">{settings.fov || 75}°</span>
+            </div>
+            <input
+              type="range"
+              min="60"
+              max="100"
+              step="1"
+              value={settings.fov || 75}
+              onChange={(e) => onUpdateSettings({ fov: parseInt(e.target.value, 10) })}
+              className="w-full accent-emerald-500 cursor-pointer"
+            />
+          </div>
+
+          {/* Master Audio Volume */}
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-zinc-400">
+              <span>MASTER VOLUME</span>
               <span className="text-emerald-400 font-bold">{Math.round(settings.soundVolume * 100)}%</span>
             </div>
             <input
@@ -227,31 +244,48 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
               max="1"
               step="0.05"
               value={settings.soundVolume}
-              onChange={(e) => onUpdateSettings({ soundVolume: parseFloat(e.target.value) })}
+              onChange={(e) => onUpdateSettings({ soundVolume: parseFloat(e.target.value), masterVolume: parseFloat(e.target.value) })}
               className="w-full accent-emerald-500 cursor-pointer"
             />
           </div>
 
-          {/* Head Bobbing toggle */}
-          <div className="flex items-center justify-between text-xs text-zinc-400 pt-1">
-            <span>HEAD-BOB LOCOMOTION</span>
-            <button
-              onClick={() => onUpdateSettings({ headBobbing: !settings.headBobbing })}
-              className={`px-3 py-1 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
-                settings.headBobbing
-                  ? 'bg-emerald-950 border-emerald-600 text-emerald-300'
-                  : 'bg-zinc-900 border-zinc-800 text-zinc-500'
-              }`}
-            >
-              {settings.headBobbing ? 'ENABLED' : 'DISABLED'}
-            </button>
+          {/* Toggles Row */}
+          <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
+            <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-900 border border-zinc-800">
+              <span className="text-zinc-400 text-[11px]">HEAD BOB</span>
+              <button
+                onClick={() => onUpdateSettings({ headBobbing: !settings.headBobbing })}
+                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                  settings.headBobbing
+                    ? 'bg-emerald-950 border border-emerald-600 text-emerald-300'
+                    : 'bg-zinc-950 border border-zinc-800 text-zinc-500'
+                }`}
+              >
+                {settings.headBobbing ? 'ON' : 'OFF'}
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-900 border border-zinc-800">
+              <span className="text-zinc-400 text-[11px]">FILM GRAIN</span>
+              <button
+                onClick={() => onUpdateSettings({ filmGrain: !settings.filmGrain })}
+                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                  settings.filmGrain
+                    ? 'bg-emerald-950 border border-emerald-600 text-emerald-300'
+                    : 'bg-zinc-950 border border-zinc-800 text-zinc-500'
+                }`}
+              >
+                {settings.filmGrain ? 'ON' : 'OFF'}
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Controls Cheatsheet */}
-        <div className="pause-cheatsheet text-[11px] text-zinc-500 space-y-1 pt-2 border-t border-zinc-900">
-          <p>[F] Tactical Light • [T] UV Blacklight • [Shift] Sprint</p>
-          <p>[C] Stealth Crouch • [G] Glass Distraction • [X] Flare</p>
+        <div className="pause-cheatsheet text-[10px] text-zinc-400 space-y-1 pt-2 border-t border-zinc-900 bg-zinc-900/40 p-2.5 rounded-xl">
+          <p className="font-bold text-zinc-300 text-[11px] mb-1">🎮 CONTROLS REFERENCE</p>
+          <p><strong className="text-emerald-400">PC:</strong> [WASD] Move • [Mouse] Look • [E] Interact • [F] Flashlight • [Shift] Sprint • [C] Crouch • [M] Map • [X] Flare • [G] Bottle</p>
+          <p><strong className="text-emerald-400">Gamepad:</strong> [Left Stick] Move • [Right Stick] Look • [A] Interact • [Y] Light • [RT] Sprint • [LT] Breath • [B] Crouch • [LB] Bottle • [RB] Flare • [D-Pad Up] Map</p>
         </div>
       </div>
     </div>

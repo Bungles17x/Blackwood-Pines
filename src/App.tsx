@@ -234,6 +234,12 @@ export default function App() {
       setShowMap(true);
       engine.setModalOpen(true);
     };
+    engine.onOpenObjectives = () => {
+      handleOpenObjectivesModal();
+    };
+    engine.onPauseGame = () => {
+      handlePauseGame();
+    };
     engine.onNoteOpen = (note) => {
       setActiveNote(note);
       engine.setModalOpen(true);
@@ -521,6 +527,15 @@ export default function App() {
       }
       if (newSettings.soundVolume !== undefined) {
         horrorAudio.setMasterVolume(newSettings.soundVolume);
+      }
+      if (newSettings.masterVolume !== undefined) {
+        horrorAudio.setMasterVolume(newSettings.masterVolume);
+      }
+      if (newSettings.sfxVolume !== undefined) {
+        horrorAudio.setSFXVolume(newSettings.sfxVolume);
+      }
+      if (newSettings.ambientVolume !== undefined) {
+        horrorAudio.setAmbientVolume(newSettings.ambientVolume);
       }
       return updated;
     });

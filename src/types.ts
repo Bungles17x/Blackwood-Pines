@@ -52,10 +52,18 @@ export interface SurvivalVitals {
 export interface GameSettings {
   mouseSensitivity: number;
   soundVolume: number;
+  masterVolume?: number;
+  sfxVolume?: number;
   ambientVolume: number;
   difficulty: 'normal' | 'nightmare' | 'story';
   headBobbing: boolean;
   filmGrain: boolean;
+  fov?: number; // 60 - 100 degrees
+  graphicsQuality?: 'high' | 'medium' | 'low';
+  chromaticAberration?: boolean;
+  vignette?: boolean;
+  weatherEffects?: boolean;
+  controllerVibration?: boolean;
 }
 
 export interface Chapter {
